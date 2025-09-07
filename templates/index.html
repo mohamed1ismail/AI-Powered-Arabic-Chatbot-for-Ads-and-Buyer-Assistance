@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>المساعد الذكي للإعلانات العربية</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .chat-header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .chat-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .reset-btn {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.3s;
+        }
+
+        .reset-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message.bot {
+            justify-content: flex-start;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            line-height: 1.4;
+        }
+
+        .message.user .message-content {
+            background: #007bff;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.bot .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            margin: 0 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .message.user .message-avatar {
+            background: #007bff;
+            color: white;
+        }
+
+        .message.bot .message-avatar {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .chat-input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .chat-input-form {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .chat-input:focus {
+            border-color: #4CAF50;
+        }
+
+        .send-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+            min-width: 80px;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            background: #45a049;
+        }
+
+        .send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 10px 16px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            padding: 4px 8px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 12px;
+            font-size: 12px;
+            color: white;
+        }
+
+        @media (max-width: 600px) {
+            .chat-container {
+                height: 100vh;
+                border-radius: 0;
+                max-width: none;
+            }
+            
+            .message-content {
+                max-width: 85%;
+            }
+        }
+
+        .welcome-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        .welcome-message h2 {
+            color: #4CAF50;
+            margin-bottom: 10px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <button class="reset-btn" onclick="resetChat()">🔄 إعادة تعيين</button>
+            <h1>🤖 المساعد الذكي للإعلانات</h1>
+            <p>مساعدك الذكي لكتابة الإعلانات والب��ث عن المنتجات</p>
+            <div class="status-indicator" id="statusIndicator">متصل</div>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="welcome-message">
+                <h2>أهلاً وسهلاً! 👋</h2>
+                <p>أنا مساعدك الذكي للإعلانات باللغة العربية</p>
+                <p>يمكنني مساعدتك في كتابة إعلانات جذابة أو البحث عن المنتجات</p>
+                <p><strong>ابدأ المحادثة بكتابة رسالة...</strong></p>
+            </div>
+        </div>
+        
+        <div class="typing-indicator" id="typingIndicator">
+            المساعد يكتب... <span class="loading"></span>
+        </div>
+        
+        <div class="chat-input-container">
+            <form class="chat-input-form" id="chatForm">
+                <input 
+                    type="text" 
+                    class="chat-input" 
+                    id="messageInput" 
+                    placeholder="اكتب رسالتك هنا..." 
+                    autocomplete="off"
+                    required
+                >
+                <button type="submit" class="send-btn" id="sendBtn">إرسال</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const chatForm = document.getElementById('chatForm');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const statusIndicator = document.getElementById('statusIndicator');
+
+        let conversationStarted = false;
+
+        // Auto-focus input
+        messageInput.focus();
+
+        // Handle form submission
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // Clear welcome message on first interaction
+            if (!conversationStarted) {
+                chatMessages.innerHTML = '';
+                conversationStarted = true;
+            }
+
+            // Add user message
+            addMessage(message, 'user');
+            messageInput.value = '';
+            
+            // Disable input and show typing
+            setLoading(true);
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    addMessage(data.response, 'bot');
+                    updateStatus(data.state, data.user_type);
+                } else {
+                    addMessage('عذراً، حدث خطأ: ' + (data.error || 'خطأ غير معروف'), 'bot');
+                }
+            } catch (error) {
+                addMessage('عذراً، حدث خطأ في الاتصال. تأكد من تشغيل الخادم.', 'bot');
+                console.error('Error:', error);
+            }
+
+            setLoading(false);
+        });
+
+        function addMessage(content, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = sender === 'user' ? '👤' : '🤖';
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            messageContent.textContent = content;
+            
+            if (sender === 'user') {
+                messageDiv.appendChild(messageContent);
+                messageDiv.appendChild(avatar);
+            } else {
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(messageContent);
+            }
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function setLoading(loading) {
+            sendBtn.disabled = loading;
+            messageInput.disabled = loading;
+            
+            if (loading) {
+                sendBtn.innerHTML = '<span class="loading"></span>';
+                typingIndicator.style.display = 'block';
+            } else {
+                sendBtn.textContent = 'إرسال';
+                typingIndicator.style.display = 'none';
+            }
+        }
+
+        function updateStatus(state, userType) {
+            let statusText = 'متصل';
+            
+            if (userType === 'advertiser') {
+                statusText = '📝 معلن';
+            } else if (userType === 'buyer') {
+                statusText = '🔍 مشتري';
+            }
+            
+            statusIndicator.textContent = statusText;
+        }
+
+        async function resetChat() {
+            if (confirm('هل تريد إعادة تعيين المحادثة؟')) {
+                try {
+                    await fetch('/api/reset', { method: 'POST' });
+                    chatMessages.innerHTML = `
+                        <div class="welcome-message">
+                            <h2>أهلاً وسهلاً! 👋</h2>
+                            <p>أنا مساعدك الذكي للإعلانات باللغة العربية</p>
+                            <p>يمكنني مساعدتك في كتابة إعلانات جذابة أو البحث عن المنتجات</p>
+                            <p><strong>ابدأ المحادثة بكتابة رسالة...</strong></p>
+                        </div>
+                    `;
+                    conversationStarted = false;
+                    statusIndicator.textContent = 'متصل';
+                    messageInput.focus();
+                } catch (error) {
+                    console.error('Reset error:', error);
+                }
+            }
+        }
+
+        // Handle Enter key
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                chatForm.dispatchEvent(new Event('submit'));
+            }
+        });
+    </script>
+</body>
+</html>

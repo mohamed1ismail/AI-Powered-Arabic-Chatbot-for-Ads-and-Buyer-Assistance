@@ -270,15 +270,7 @@
         </div>
         
         <div class="chat-messages" id="chatMessages">
-            <div class="welcome-message">
-                <h2>أهلاً وسهلاً! 👋</h2>
-                <p>أنا مساعدك الذكي للإعلانات باللغة العربية</p>
-                <div class="demo-info">
-                    📝 <strong>نسخة تجريبية:</strong> هذه النسخة تعمل بدون الذكاء الاصطناعي المتقدم<br>
-                    🔧 للحصول على المميزات الكاملة، قم بإعداد مفتاح OpenAI API
-                </div>
-                <p><strong>ابدأ المحادثة بكتابة رسالة...</strong></p>
-            </div>
+            <!-- Messages will be loaded here -->
         </div>
         
         <div class="typing-indicator" id="typingIndicator">
@@ -295,6 +287,13 @@
                     autocomplete="off"
                     required
                 >
+                <input 
+                    type="file" 
+                    id="imageInput" 
+                    accept="image/*" 
+                    style="display: none;"
+                >
+                <button type="button" class="image-btn" id="imageBtn" style="display: none;">📸</button>
                 <button type="submit" class="send-btn" id="sendBtn">إرسال</button>
             </form>
         </div>
@@ -307,8 +306,11 @@
         const chatForm = document.getElementById('chatForm');
         const typingIndicator = document.getElementById('typingIndicator');
         const statusIndicator = document.getElementById('statusIndicator');
+        const imageInput = document.getElementById('imageInput');
+        const imageBtn = document.getElementById('imageBtn');
 
         let conversationStarted = false;
+        let currentState = 'initial';
 
         // Auto-focus input
         messageInput.focus();
@@ -346,6 +348,18 @@
                 if (data.success) {
                     addMessage(data.response, 'bot');
                     updateStatus(data.state, data.user_type);
+                    currentState = data.state;
+                    
+                    // Show image upload button if waiting for image
+                    if (data.state === 'advertiser_waiting_image' || data.state === 'buyer_waiting_image') {
+                        imageBtn.style.display = 'inline-block';
+                        if (data.state === 'advertiser_waiting_image') {
+                            messageInput.placeholder = 'انقر على 📸 لرفع صورة المنتج';
+                        } else {
+                            messageInput.placeholder = 'انقر على 📸 لرفع صورة المنتج للبحث';
+                        }
+                        messageInput.disabled = true;
+                    }
                 } else {
                     addMessage('عذراً، حدث خطأ: ' + (data.error || 'خطأ غير معروف'), 'bot');
                 }
@@ -394,6 +408,62 @@
             }
         }
 
+        // Handle image upload button
+        imageBtn.addEventListener('click', () => {
+            imageInput.click();
+        });
+
+        // Handle image selection
+        imageInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (currentState !== 'advertiser_waiting_image' && currentState !== 'buyer_waiting_image') {
+                alert('لا يمكن رفع الصور في هذه المرحلة');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            setLoading(true);
+            addMessage('جاري رفع الصورة...', 'user');
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    addMessage('✅ تم رفع الصورة بنجاح!', 'bot');
+                    addMessage(data.message, 'bot');
+                    
+                    // Hide image button and enable text input
+                    imageBtn.style.display = 'none';
+                    messageInput.disabled = false;
+                    messageInput.placeholder = 'اكتب رسالتك هنا...';
+                    
+                    // Update state based on previous state
+                    if (currentState === 'advertiser_waiting_image') {
+                        currentState = 'advertiser_confirming';
+                    } else if (currentState === 'buyer_waiting_image') {
+                        currentState = 'buyer_waiting_query';
+                    }
+                } else {
+                    addMessage('❌ خطأ في رفع الصورة: ' + data.error, 'bot');
+                }
+            } catch (error) {
+                addMessage('❌ خطأ في رفع الصورة', 'bot');
+                console.error('Upload error:', error);
+            }
+
+            setLoading(false);
+            imageInput.value = ''; // Reset file input
+        });
+
         function updateStatus(state, userType) {
             let statusText = 'متصل';
             
@@ -414,15 +484,15 @@
                         <div class="welcome-message">
                             <h2>أهلاً وسهلاً! 👋</h2>
                             <p>أنا مساعدك الذكي للإعلانات باللغة العربية</p>
-                            <div class="demo-info">
-                                📝 <strong>نسخة تجريبية:</strong> هذه النسخة تعمل بدون الذكاء الاصطناعي المتقدم<br>
-                                🔧 للحصول على المميزات الكاملة، قم بإعداد مفتاح OpenAI API
-                            </div>
                             <p><strong>ابدأ المحادثة بكتابة رسالة...</strong></p>
                         </div>
                     `;
                     conversationStarted = false;
+                    currentState = 'initial';
                     statusIndicator.textContent = 'متصل';
+                    imageBtn.style.display = 'none';
+                    messageInput.disabled = false;
+                    messageInput.placeholder = 'اكتب رسالتك هنا...';
                     messageInput.focus();
                 } catch (error) {
                     console.error('Reset error:', error);
@@ -436,6 +506,12 @@
                 e.preventDefault();
                 chatForm.dispatchEvent(new Event('submit'));
             }
+        });
+
+        // Initialize chat when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add welcome message
+            addMessage('أهلاً وسهلاً! 👋\nأنا مساعدك الذكي للإعلانات باللغة العربية\nمن فضلك اختر:\n1️⃣ أنا معلن\n2️⃣ أنا مشتري', 'bot');
         });
     </script>
 </body>
